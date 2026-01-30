@@ -327,7 +327,6 @@ async function startNewGame() {
   try {
     guesses = [];
     row = 0; col = 0; currentWord = ''; gameOver = false; inputLocked = false;
-    
     // Query resetBtn
     resetBtn = document.getElementById('resetBtn');
     
@@ -493,14 +492,14 @@ if (isInDiscord) {
         <p>Welcome, ${auth.user.username}!</p>
         <div id="board"></div>
         <div id="keyboard"></div>
-        <button id="resetBtn" onclick="resetGame()" style="display: none;">Reset</button>
+        <button id="resetBtn" style="display: none;">Reset</button>
       </div>
     `;
-
+    document.getElementById('resetBtn').addEventListener('click', resetGame);
     // // Re-initialize after DOM update
-    // initializeBoard();
-    // initializeKeyboard();
-    // await loadProgressAndSession();
+    initializeBoard();
+    initializeKeyboard();
+    await loadProgressAndSession();
   }).catch((error) => {
     console.error("Discord SDK initialization failed:", error);
     
@@ -523,9 +522,10 @@ if (isInDiscord) {
           <p>Running in fallback mode.</p>
           <div id="board"></div>
           <div id="keyboard"></div>
-          <button id="resetBtn" onclick="resetGame()" style="display: none;">Reset</button>
+          <button id="resetBtn" style="display: none;">Reset</button>
         </div>
       `;
+      document.getElementById('resetBtn').addEventListener('click', resetGame);
       
       initializeBoard();
       initializeKeyboard();
@@ -546,9 +546,10 @@ if (isInDiscord) {
       <h1>🎮 Discord Wordle (Local Dev)</h1>
       <div id="board"></div>
       <div id="keyboard"></div>
-      <button id="resetBtn" onclick="resetGame()" style="display: none;">Reset</button>
+      <button id="resetBtn"  style="display: none;">Reset</button>
     </div>
   `;
+  document.getElementById('resetBtn').addEventListener('click', resetGame);
   
   initializeBoard();
   initializeKeyboard();
