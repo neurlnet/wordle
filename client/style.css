@@ -63,17 +63,26 @@ h1 {
 
 .cell.correct { 
   background: #538d4e; 
-  border-color: #538d4e; 
+  border-color: #538d4e;
+  animation: flip 0.6s;
 }
 
 .cell.present { 
   background: #b59f3b; 
-  border-color: #b59f3b; 
+  border-color: #b59f3b;
+  animation: flip 0.6s;
 }
 
 .cell.absent { 
   background: #3a3a3c; 
-  border-color: #3a3a3c; 
+  border-color: #3a3a3c;
+  animation: flip 0.6s;
+}
+
+@keyframes flip {
+  0% { transform: rotateX(0deg); }
+  50% { transform: rotateX(90deg); }
+  100% { transform: rotateX(0deg); }
 }
 
 .cell.dance {

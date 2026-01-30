@@ -15,9 +15,10 @@ let gameOver = false;
 let guesses = [];
 let inputLocked = false;
 
-const board = document.getElementById('board');
-const keyboardDiv = document.getElementById('keyboard');
-const resetBtn = document.getElementById('resetBtn');
+// DOM elements (will be queried after they're created)
+let board;
+let keyboardDiv;
+let resetBtn;
 
 /* ===== SOUND ENGINE ===== */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -34,14 +35,14 @@ function playSound(type) {
 
   if (type === "type")    { freq = 600; duration = 0.05; }
   if (type === "delete")  { freq = 300; duration = 0.07; }
-  if (type === "flip")    { freq = 450; duration = 0.08; }
+  if (type === "flip")    { freq = 500; duration = 0.15; } // Softer, longer sound
   if (type === "win")     { freq = 800; duration = 0.25; }
   if (type === "shake")   { freq = 200; duration = 0.15; }
 
   osc.frequency.value = freq;
   osc.type = "sine";
 
-  gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
 
   osc.start();
@@ -57,6 +58,9 @@ const KEYS = [
 ];
 
 function initializeBoard() {
+  // Query DOM after elements exist
+  board = document.getElementById('board');
+  
   // Clear existing board
   board.innerHTML = '';
   
@@ -74,6 +78,10 @@ function initializeBoard() {
 }
 
 function initializeKeyboard() {
+  // Query DOM after elements exist
+  keyboardDiv = document.getElementById('keyboard');
+  resetBtn = document.getElementById('resetBtn');
+  
   // Clear existing keyboard
   keyboardDiv.innerHTML = '';
   
@@ -196,7 +204,7 @@ async function submitGuess() {
   // WIN
   if (isWin) {
     gameOver = true;
-    resetBtn.style.display = 'inline-block';
+    if (resetBtn) resetBtn.style.display = 'inline-block';
     const totalFlipTime = (5 * 350) + 900;
 
     setTimeout(() => {
@@ -219,7 +227,7 @@ async function submitGuess() {
   // LOSS: 6th attempt without win
   if (row === 5) {
     gameOver = true;
-    resetBtn.style.display = 'inline-block';
+    if (resetBtn) resetBtn.style.display = 'inline-block';
     const totalFlipTime = (5 * 350) + 900;
     setTimeout(() => {
       const lastRow = board.children[row];
@@ -278,6 +286,9 @@ async function loadProgressAndSession() {
     }
     console.log('loadProgressAndSession - user:', user);
 
+    // Query resetBtn here too
+    resetBtn = document.getElementById('resetBtn');
+
     if (user.GameProgress) {
       const p = typeof user.GameProgress === 'string' ? JSON.parse(user.GameProgress) : user.GameProgress;
       if (p && p.guesses) {
@@ -287,7 +298,7 @@ async function loadProgressAndSession() {
         currentWord = '';
         gameOver = !!p.gameOver;
 
-        if (gameOver) {
+        if (gameOver && resetBtn) {
           resetBtn.style.display = 'inline-block';
         }
 
@@ -317,7 +328,12 @@ async function startNewGame() {
     guesses = [];
     row = 0; col = 0; currentWord = ''; gameOver = false; inputLocked = false;
     
-    resetBtn.style.display = 'none';
+    // Query resetBtn
+    resetBtn = document.getElementById('resetBtn');
+    
+    if (resetBtn) {
+      resetBtn.style.display = 'none';
+    }
     
     for (let r = 0; r < 6; r++) {
       for (let c = 0; c < 5; c++) {
@@ -344,6 +360,9 @@ async function startNewGame() {
 function resetGame() {
   startNewGame();
 }
+
+// Make resetGame globally available for onclick handlers
+window.resetGame = resetGame;
 
 window.addEventListener('beforeunload', () => {
   saveProgress();
@@ -385,74 +404,153 @@ function randomColor() {
 
 // Discord SDK Setup
 async function setupDiscordSdk() {
-  await discordSdk.ready();
-  console.log("Discord SDK is ready");
+  try {
+    await discordSdk.ready();
+    console.log("Discord SDK is ready");
 
-  // Authorize with Discord Client
-  const { code } = await discordSdk.commands.authorize({
-    client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
-    response_type: "code",
-    state: "",
-    prompt: "none",
-    scope: [
-      "identify",
-      "guilds",
-      "applications.commands"
-    ],
-  });
+    // Authorize with Discord Client
+    const { code } = await discordSdk.commands.authorize({
+      client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
+      response_type: "code",
+      state: "",
+      prompt: "none",
+      scope: [
+        "identify",
+        "guilds",
+        "applications.commands"
+      ],
+    });
 
-  // Retrieve an access_token from the server
-  const response = await fetch("/api/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      code,
-    }),
-  });
-  const { access_token } = await response.json();
+    console.log("Authorization code received:", code ? "yes" : "no");
 
-  // Authenticate with Discord client
-  auth = await discordSdk.commands.authenticate({
-    access_token,
-  });
+    // Retrieve an access_token from the server
+    const response = await fetch("/api/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        code,
+      }),
+    });
 
-  if (auth == null) {
-    throw new Error("Authenticate command failed");
+    if (!response.ok) {
+      throw new Error(`Token exchange failed: ${response.status} ${response.statusText}`);
+    }
+
+    const { access_token } = await response.json();
+    console.log("Access token received:", access_token ? "yes" : "no");
+
+    // Authenticate with Discord client
+    auth = await discordSdk.commands.authenticate({
+      access_token,
+    });
+
+    if (auth == null) {
+      throw new Error("Authenticate command failed");
+    }
+
+    // Set current user ID from auth
+    currentUserId = auth.user.id;
+    console.log("Authenticated as user:", currentUserId);
+
+    
+  } catch (error) {
+    console.error("setupDiscordSdk error:", error);
+    throw error;
   }
+}
 
-  // Set current user ID from auth
-  currentUserId = auth.user.id;
-  console.log("Authenticated as user:", currentUserId);
+// Check if running in Discord (has frame_id query param)
+const isInDiscord = new URLSearchParams(window.location.search).has('frame_id');
 
-  // Initialize UI
-  initializeBoard();
-  initializeKeyboard();
+if (isInDiscord) {
+  // Show loading screen while Discord auth is happening
+  document.querySelector('#app').innerHTML = `
+    <div style="text-align: center; padding: 2rem;">
+      <h1>🎮 Discord Wordle</h1>
+      <p>Loading...</p>
+    </div>
+  `;
+
+  // Initialize Discord SDK only when in Discord
+  discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID);
+  console.log("Discord SDK initialized with client ID:", import.meta.env.VITE_DISCORD_CLIENT_ID);
   
-  // Load user progress
-  await loadProgressAndSession();
+  setupDiscordSdk().then(async () => {
+    console.log("Discord SDK is authenticated");
+    // // Initialize UI
+    // initializeBoard();
+    // initializeKeyboard();
+    
+    // // Load user progress
+    // await loadProgressAndSession();
 
-  // Display welcome message
+    // Display welcome message
+    document.querySelector('#app').innerHTML = `
+      <div>
+        <h1>🎮 Discord Wordle</h1>
+        <p>Welcome, ${auth.user.username}!</p>
+        <div id="board"></div>
+        <div id="keyboard"></div>
+        <button id="resetBtn" onclick="resetGame()" style="display: none;">Reset</button>
+      </div>
+    `;
+
+    // // Re-initialize after DOM update
+    // initializeBoard();
+    // initializeKeyboard();
+    // await loadProgressAndSession();
+  }).catch((error) => {
+    console.error("Discord SDK initialization failed:", error);
+    
+    // Fallback to local mode if Discord auth fails
+    currentUserId = 'fallback-user';
+    const errorMsg = error?.message || String(error);
+    
+    try {
+      const appDiv = document.querySelector('#app');
+      if (!appDiv) {
+        console.error("Could not find #app element");
+        return;
+      }
+      
+      appDiv.innerHTML = `
+        <div style="text-align: center; padding: 2rem;">
+          <h1>🎮 Discord Wordle</h1>
+          <p style="color: red;">Discord authentication failed.....</p>
+          <p style="color: red; font-size: 0.9rem; font-family: monospace;">Error: ${errorMsg}</p>
+          <p>Running in fallback mode.</p>
+          <div id="board"></div>
+          <div id="keyboard"></div>
+          <button id="resetBtn" onclick="resetGame()" style="display: none;">Reset</button>
+        </div>
+      `;
+      
+      initializeBoard();
+      initializeKeyboard();
+      loadProgressAndSession();
+    } catch (fallbackError) {
+      console.error("Error in fallback handler:", fallbackError);
+    }
+  });
+} else {
+  // Local development mode - run without Discord auth
+  console.warn('Not running in Discord context. Using local development mode.');
+  
+  currentUserId = 'local-dev-user';
+  
+  // Initialize game UI
   document.querySelector('#app').innerHTML = `
     <div>
-      <h1>🎮 Discord Wordle</h1>
-      <p>Welcome, ${auth.user.username}!</p>
+      <h1>🎮 Discord Wordle (Local Dev)</h1>
       <div id="board"></div>
       <div id="keyboard"></div>
       <button id="resetBtn" onclick="resetGame()" style="display: none;">Reset</button>
     </div>
   `;
-
-  // Re-initialize after DOM update
+  
   initializeBoard();
   initializeKeyboard();
-  await loadProgressAndSession();
+  loadProgressAndSession();
 }
-
-// Initialize Discord SDK
-discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID);
-
-setupDiscordSdk().then(() => {
-  console.log("Discord SDK is authenticated");
-});
