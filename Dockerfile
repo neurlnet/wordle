@@ -3,15 +3,19 @@
 # Stage 1: Build the client application
 FROM node:20-alpine AS client-builder
 
-WORKDIR /app/client
+WORKDIR /app
+
+# Copy environment file first (needed for Vite to access env vars during build)
+COPY .env ./
 
 # Copy client files
+WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm install
 
 COPY client/ .
 
-# Build the client with Vite
+# Build the client with Vite (env vars from ../.env are now available)
 RUN npm run build
 
 # Stage 2: Runtime container
