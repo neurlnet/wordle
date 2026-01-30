@@ -106,6 +106,7 @@ function initializeKeyboard() {
 // Physical keyboard
 document.addEventListener('keydown', e => {
   if (gameOver) return;
+  if (document.activeElement.id === 'word-input') return;
   let key = e.key.toUpperCase();
   if (key === "BACKSPACE") key = "DEL";
   if (/^[A-Z]$/.test(key) || key === "ENTER" || key === "DEL") {
@@ -154,7 +155,15 @@ function shakeRow() {
   void rowDiv.offsetWidth;
   rowDiv.classList.add('shake');
 }
+function showTopModal(message, duration = 3000) {
+    const modal = document.getElementById("topModal");
+    modal.innerText = message;
+    modal.classList.add("show");
 
+    setTimeout(() => {
+      modal.classList.remove("show");
+    }, duration);
+  }
 async function submitGuess() {
   if (inputLocked) return;
   inputLocked = true;
@@ -175,6 +184,11 @@ async function submitGuess() {
     shakeRow();
     playSound("shake");
     inputLocked = false;
+    const messageEl = document.getElementById('word-message');
+    if(messageEl) {
+        messageEl.textContent = data.error;
+        messageEl.style.color = 'red';
+    }
     return;
   }
 
@@ -232,6 +246,7 @@ async function submitGuess() {
   if (row === 5) {
     gameOver = true;
     if (resetBtn) resetBtn.style.display = 'inline-block';
+
     const totalFlipTime = (5 * 350) + 900;
     setTimeout(() => {
       const lastRow = board.children[row];
@@ -245,6 +260,7 @@ async function submitGuess() {
           cell.classList.add('lose');
         }, i * 100);
       }
+      showTopModal(`Game Over! The word was: ${data.secret}`, 4000);
       saveProgress();
     }, totalFlipTime);
     return;
@@ -286,8 +302,16 @@ async function loadProgressAndSession() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ user: currentUserId })
     });
-
     const data = await res.json();
+    if (!res.ok) {
+        const messageEl = document.getElementById('word-message');
+        if(messageEl) {
+            messageEl.textContent = data.error;
+            messageEl.style.color = 'red';
+            inputLocked=true;
+        }
+        // return;
+    }
     const user = data.user;
     if (!user) {
       console.error('failed to load user');
@@ -360,6 +384,15 @@ async function startNewGame() {
       body: JSON.stringify({ user: currentUserId })
     });
     const data = await res.json();
+    if (!res.ok) {
+        const messageEl = document.getElementById('word-message');
+        if(messageEl) {
+            messageEl.textContent = data.error;
+            messageEl.style.color = 'red';
+            inputLocked=true;
+        }
+        return;
+    }
     console.log('startNewGame - server response:', data);
     updateStats(data.user);
   } catch (e) {
@@ -410,6 +443,41 @@ function launchConfetti() {
 function randomColor() {
   const colors = ['#538d4e', '#b59f3b', '#f5793a', '#85c0f9', '#ef476f'];
   return colors[Math.floor(Math.random() * colors.length)];
+}
+
+async function submitWord() {
+  const wordInput = document.getElementById('word-input');
+  const messageEl = document.getElementById('word-message');
+  const word = wordInput.value.trim().toUpperCase();
+
+  if (word.length !== 5) {
+    messageEl.textContent = 'Word must be 5 letters long.';
+    messageEl.style.color = 'red';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/word', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ word, user: currentUserId })
+    });
+
+    const data = await res.json();
+
+    if (res.ok) {
+      messageEl.textContent = data.message;
+      messageEl.style.color = 'green';
+      wordInput.value = '';
+    } else {
+      messageEl.textContent = data.error;
+      messageEl.style.color = 'red';
+    }
+  } catch (err) {
+    messageEl.textContent = 'An error occurred.';
+    messageEl.style.color = 'red';
+    console.error('submitWord error:', err);
+  }
 }
 
 // Discord SDK Setup
@@ -501,9 +569,15 @@ if (isInDiscord) {
       <div>
         <h1>🎮 Discord Wordle</h1>
         <p>Welcome, ${auth.user.username}!</p>
+        <div id="topModal"></div>
         <div id="stats">
           <span>Total Words: <span id="total-words">0</span></span>
           <span>Total Correct: <span id="total-correct">0</span></span>
+        </div>
+        <div id="word-submission">
+          <input type="text" id="word-input" placeholder="Enter a 5-letter word" maxlength="5" />
+          <button id="submit-word-btn">Submit Word</button>
+          <p id="word-message"></p>
         </div>
         <div id="board"></div>
         <div id="keyboard"></div>
@@ -511,6 +585,8 @@ if (isInDiscord) {
       </div>
     `;
     document.getElementById('resetBtn').addEventListener('click', resetGame);
+    document.getElementById('submit-word-btn').addEventListener('click', submitWord);
+
     // // Re-initialize after DOM update
     initializeBoard();
     initializeKeyboard();
@@ -532,6 +608,7 @@ if (isInDiscord) {
       appDiv.innerHTML = `
         <div style="text-align: center; padding: 2rem;">
           <h1>🎮 Discord Wordle</h1>
+          <div id="topModal"></div>
           <p style="color: red;">Discord authentication failed.....</p>
           <p style="color: red; font-size: 0.9rem; font-family: monospace;">Error: ${errorMsg}</p>
           <p>Running in fallback mode.</p>
@@ -539,12 +616,18 @@ if (isInDiscord) {
             <span>Total Words: <span id="total-words">0</span></span>
             <span>Total Correct: <span id="total-correct">0</span></span>
           </div>
+          <div id="word-submission">
+            <input type="text" id="word-input" placeholder="Enter a 5-letter word" maxlength="5" />
+            <button id="submit-word-btn">Submit Word</button>
+            <p id="word-message"></p>
+          </div>
           <div id="board"></div>
           <div id="keyboard"></div>
           <button id="resetBtn" style="display: none;">Reset</button>
         </div>
       `;
       document.getElementById('resetBtn').addEventListener('click', resetGame);
+      document.getElementById('submit-word-btn').addEventListener('click', submitWord);
       
       initializeBoard();
       initializeKeyboard();
@@ -563,6 +646,7 @@ if (isInDiscord) {
   document.querySelector('#app').innerHTML = `
     <div>
       <h1>🎮 Discord Wordle (Local Dev)</h1>
+      <div id="topModal"></div>
       <div id="stats">
         <span>Total Words: <span id="total-words">0</span></span>
         <span>Total Correct: <span id="total-correct">0</span></span>
