@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  wordle-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"  # Server port
+      - "5173:5173"  # Client dev port
+    environment:
+      - VITE_DISCORD_CLIENT_ID=1466320396910592103
+      - DISCORD_CLIENT_SECRET=XHvks8SCPf4wUEsUe8g7UcVoCnE7byPJ
+      - VITE_API_URL=/api
+      - NODE_ENV=development
+    volumes:
+      - ./client:/app/client
+      - ./server:/app/server
+      - /app/node_modules
+      - /app/client/node_modules
+      - /app/server/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

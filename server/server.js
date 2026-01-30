@@ -1,40 +1,23 @@
-// ======= app.js =======
-
-import express from 'express';
-import fs from 'fs';
-import sqlite3 from 'sqlite3';
+import express from "express";
+import dotenv from "dotenv";
+import fetch from "node-fetch";
+import fs from "fs";
+import sqlite3 from "sqlite3";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+
+dotenv.config({ path: "../.env" });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const port = 3001;
 
+// Allow express to parse JSON bodies
 app.use(express.json());
 
-app.post("/api/token", async (req, res) => {
-  // Exchange the code for an access_token
-  const response = await fetch(`https://discord.com/api/oauth2/token`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: '1466320396910592103',
-      client_secret: 'XHvks8SCPf4wUEsUe8g7UcVoCnE7byPJ',
-      grant_type: "authorization_code",
-      code: req.body.code,
-    }),
-  });
-  // Retrieve the access_token from the response
-  const { access_token } = await response.json();
-  // Return the access_token to our client as { access_token: "..."}
-  res.send({access_token});
-});
-
-
+// Initialize database
 const db = new (sqlite3.verbose()).Database('./wordle.db', (err) => {
   if (err) {
     console.error('Failed to open database:', err.message);
@@ -46,7 +29,7 @@ const db = new (sqlite3.verbose()).Database('./wordle.db', (err) => {
 // Load valid words list
 let validWords = new Set();
 try {
-  const wordList = fs.readFileSync('./valid-words.txt', 'utf-8');
+  const wordList = fs.readFileSync('../valid-words.txt', 'utf-8');
   const words = wordList.split('\n').map(w => w.trim().toUpperCase()).filter(w => w.length === 5);
   validWords = new Set(words);
   console.log(`Loaded ${validWords.size} valid Wordle words`);
@@ -54,6 +37,7 @@ try {
   console.error('Failed to load valid words list:', err.message);
 }
 
+// Create database schema
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (
     User TEXT PRIMARY KEY,
@@ -77,28 +61,35 @@ db.serialize(() => {
   });
 });
 
-const WORDS = ["APPLE", "GRAPE", "PLANT", "STONE", "CHAIR", "BRAIN", "LIGHT"];
+const WORDS = ["APPLE", "GRAPE", "PLANT", "STONE", "CHAIR", "BRAIN", "LIGHT", "BOOKS", "WATER", "MUSIC"];
 let SECRET = WORDS[Math.floor(Math.random() * WORDS.length)];
 
-app.use(express.json());
-app.use(express.static('public'));
-
-// Simple request logger
-app.use((req, res, next) => {
-  console.log(`REQ ${req.method} ${req.path} body=${JSON.stringify(req.body)}`);
-  next();
-});
-
-// Serve index.html
-app.get('/', (req, res) => {
-  res.sendFile(__dirname + '/public/index.html');
+// OAuth Token endpoint
+app.post("/api/token", async (req, res) => {
+  // Exchange the code for an access_token
+  const response = await fetch(`https://discord.com/api/oauth2/token`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams({
+      client_id: process.env.VITE_DISCORD_CLIENT_ID,
+      client_secret: process.env.DISCORD_CLIENT_SECRET,
+      grant_type: "authorization_code",
+      code: req.body.code,
+    }),
+  });
+  // Retrieve the access_token from the response
+  const { access_token } = await response.json();
+  // Return the access_token to our client as { access_token: "..."}
+  res.send({access_token});
 });
 
 // Guess endpoint - evaluate guess and increment TotalCorrect if correct
-app.post('/guess', (req, res) => {
+app.post('/api/guess', (req, res) => {
   const guess = (req.body.word || '').toUpperCase();
-  const activeUser = req.body.user || 'neurl';
-  console.log(`/guess - received guess='${guess}' from user='${activeUser}'`);
+  const activeUser = req.body.user || 'unknown';
+  console.log(`/api/guess - received guess='${guess}' from user='${activeUser}'`);
 
   // Validate guess is in word list
   if (!validWords.has(guess)) {
@@ -134,10 +125,10 @@ app.post('/guess', (req, res) => {
 
     // If correct, increment TotalCorrect
     if (isCorrect) {
-      console.log(`/guess - correct guess! incrementing TotalCorrect for user='${activeUser}'`);
+      console.log(`/api/guess - correct guess! incrementing TotalCorrect for user='${activeUser}'`);
       db.run('UPDATE users SET TotalCorrect = TotalCorrect + 1 WHERE User = ?', [activeUser], function (err) {
-        if (err) console.error('/guess - failed to increment TotalCorrect:', err.message);
-        else console.log('/guess - TotalCorrect incremented');
+        if (err) console.error('/api/guess - failed to increment TotalCorrect:', err.message);
+        else console.log('/api/guess - TotalCorrect incremented');
         res.json({ result });
       });
     } else {
@@ -147,10 +138,10 @@ app.post('/guess', (req, res) => {
 });
 
 // Session start: on page load, create user if not exists, load existing progress
-app.post('/session/start', (req, res) => {
-  const user = req.body.user || 'neurl';
+app.post('/api/session/start', (req, res) => {
+  const user = req.body.user || 'unknown';
   const newSecret = WORDS[Math.floor(Math.random() * WORDS.length)];
-  console.log('session/start - user:', user);
+  console.log('/api/session/start - user:', user);
 
   // Create user if not exists with TotalWords=1
   db.run(
@@ -161,7 +152,7 @@ app.post('/session/start', (req, res) => {
       // Return full user row
       db.get('SELECT * FROM users WHERE User = ?', [user], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
-        console.log('session/start - user row:', row);
+        console.log('/api/session/start - user row:', row);
         res.json({ user: row });
       });
     }
@@ -169,43 +160,37 @@ app.post('/session/start', (req, res) => {
 });
 
 // Save game progress for a user (JSON). Body: { progress: { ... } }
-app.post('/user/:user/progress', (req, res) => {
+app.post('/api/user/:user/progress', (req, res) => {
   const user = req.params.user;
   const progress = req.body.progress ? JSON.stringify(req.body.progress) : null;
-  console.log('/user/:user/progress - saving progress for', user, 'progress:', req.body.progress);
+  console.log('/api/user/:user/progress - saving progress for', user, 'progress:', req.body.progress);
   db.run('UPDATE users SET GameProgress = ? WHERE User = ?', [progress, user], function (err) {
     if (err) return res.status(500).json({ error: err.message });
     if (this.changes === 0) return res.status(404).json({ error: 'not found' });
     db.get('SELECT GameProgress FROM users WHERE User = ?', [user], (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
-      console.log('/user/:user/progress - saved progress row:', row);
+      console.log('/api/user/:user/progress - saved progress row:', row);
       res.json({ progress: row ? (row.GameProgress ? JSON.parse(row.GameProgress) : null) : null });
     });
   });
 });
 
 // Load game progress for a user
-app.get('/user/:user/progress', (req, res) => {
+app.get('/api/user/:user/progress', (req, res) => {
   const user = req.params.user;
   db.get('SELECT GameProgress FROM users WHERE User = ?', [user], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
     if (!row) return res.status(404).json({ error: 'not found' });
-    console.log('/user/:user/progress - loaded progress for', user, row);
+    console.log('/api/user/:user/progress - loaded progress for', user, row);
     res.json({ progress: row.GameProgress ? JSON.parse(row.GameProgress) : null });
   });
 });
 
-// Reset endpoint
-app.post('/reset', (req, res) => {
-  SECRET = WORDS[Math.floor(Math.random() * WORDS.length)];
-  res.json({ status: 'reset' });
-});
-
 // Reset: increment TotalWords, clear progress, set new word
-app.post('/session/end', (req, res) => {
-  const user = (req.body && req.body.user) ? req.body.user : 'neurl';
+app.post('/api/session/end', (req, res) => {
+  const user = (req.body && req.body.user) ? req.body.user : 'unknown';
   const newSecret = WORDS[Math.floor(Math.random() * WORDS.length)];
-  console.log('session/end - user:', user, 'new secret:', newSecret);
+  console.log('/api/session/end - user:', user, 'new secret:', newSecret);
 
   // Always increment TotalWords on Reset, clear progress, set new word
   db.run(
@@ -215,17 +200,15 @@ app.post('/session/end', (req, res) => {
       if (err) return res.status(500).json({ error: err.message });
       db.get('SELECT * FROM users WHERE User = ?', [user], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
-        console.log('session/end - updated user row:', row);
+        console.log('/api/session/end - updated user row:', row);
         res.json({ user: row, newSecret });
       });
     }
   );
 });
 
-
-
 // Get user
-app.get('/user/:user', (req, res) => {
+app.get('/api/user/:user', (req, res) => {
   const user = req.params.user;
   db.get('SELECT * FROM users WHERE User = ?', [user], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -234,6 +217,11 @@ app.get('/user/:user', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Wordle running on http://localhost:${PORT}`);
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Wordle server is running' });
+});
+
+app.listen(port, () => {
+  console.log(`Wordle server listening at http://localhost:${port}`);
 });

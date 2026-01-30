@@ -1,19 +1,19 @@
 {
-  "name": "wordle-app",
+  "name": "discord-wordle",
   "version": "1.0.0",
-  "description": "Simple Wordle clone using Node.js + HTML5",
-  "type": "module",
-  "main": "app.js",
+  "description": "Wordle game as a Discord Activity",
+  "private": true,
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js"
+    "dev": "concurrently \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "build": "npm --prefix client run build",
+    "preview": "npm --prefix client run preview",
+    "start:server": "npm --prefix server start",
+    "start:client": "npm --prefix client run dev"
   },
-  "dependencies": {
-    "@discord/embedded-app-sdk": "^2.4.0",
-    "express": "^4.19.2",
-    "sqlite3": "^5.1.7"
-  },
+  "keywords": ["discord", "activity", "wordle", "game"],
+  "author": "",
+  "license": "ISC",
   "devDependencies": {
-    "nodemon": "^3.0.3"
+    "concurrently": "^8.2.0"
   }
 }

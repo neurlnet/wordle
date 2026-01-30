@@ -1,25 +1,18 @@
-// ======= public/app.js =======
+// Import the SDK
+import { DiscordSDK } from "@discord/embedded-app-sdk";
+import "./style.css";
 
-const USER_ID = 'neurl';
+// Will eventually store the authenticated user's access_token
+let auth;
+let discordSdk;
+let currentUserId;
 
-// import { DiscordSDK } from "@discord/embedded-app-sdk";
-
-// // Instantiate the SDK
-// const discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID);
-
-// setupDiscordSdk().then(() => {
-//   console.log("Discord SDK is ready");
-// });
-
-// async function setupDiscordSdk() {
-//   await discordSdk.ready();
-// }
-
+// Wordle game state
 let row = 0;
 let col = 0;
 let currentWord = "";
 let gameOver = false;
-let guesses = []; // array of { word: 'APPLE', result: ['correct','present',...] }
+let guesses = [];
 let inputLocked = false;
 
 const board = document.getElementById('board');
@@ -27,7 +20,6 @@ const keyboardDiv = document.getElementById('keyboard');
 const resetBtn = document.getElementById('resetBtn');
 
 /* ===== SOUND ENGINE ===== */
-
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playSound(type) {
@@ -64,41 +56,50 @@ const KEYS = [
   ["ENTER","Z","X","C","V","B","N","M","DEL"]
 ];
 
-// Build board
-for (let i = 0; i < 6; i++) {
-  const r = document.createElement('div');
-  r.className = 'row';
-  for (let j = 0; j < 5; j++) {
-    const c = document.createElement('div');
-    c.className = 'cell';
-    r.appendChild(c);
+function initializeBoard() {
+  // Clear existing board
+  board.innerHTML = '';
+  
+  // Build board
+  for (let i = 0; i < 6; i++) {
+    const r = document.createElement('div');
+    r.className = 'row';
+    for (let j = 0; j < 5; j++) {
+      const c = document.createElement('div');
+      c.className = 'cell';
+      r.appendChild(c);
+    }
+    board.appendChild(r);
   }
-  board.appendChild(r);
 }
 
-// Build keyboard
-KEYS.forEach(rowKeys => {
-  const rowDiv = document.createElement('div');
-  rowDiv.className = 'key-row';
+function initializeKeyboard() {
+  // Clear existing keyboard
+  keyboardDiv.innerHTML = '';
+  
+  // Build keyboard
+  KEYS.forEach(rowKeys => {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'key-row';
 
-  rowKeys.forEach(k => {
-    const key = document.createElement('button');
-    key.className = 'key';
-    key.innerText = k;
-    if (k === "ENTER" || k === "DEL") key.classList.add('big');
-    key.onclick = () => handleKey(k);
-    rowDiv.appendChild(key);
+    rowKeys.forEach(k => {
+      const key = document.createElement('button');
+      key.className = 'key';
+      key.innerText = k;
+      if (k === "ENTER" || k === "DEL") key.classList.add('big');
+      key.onclick = () => handleKey(k);
+      rowDiv.appendChild(key);
+    });
+
+    keyboardDiv.appendChild(rowDiv);
   });
-
-  keyboardDiv.appendChild(rowDiv);
-});
+}
 
 // Physical keyboard
 document.addEventListener('keydown', e => {
   if (gameOver) return;
   let key = e.key.toUpperCase();
   if (key === "BACKSPACE") key = "DEL";
-  if (key === "ENTER") key = "ENTER";
   if (/^[A-Z]$/.test(key) || key === "ENTER" || key === "DEL") {
     handleKey(key);
   }
@@ -150,19 +151,17 @@ async function submitGuess() {
   if (inputLocked) return;
   inputLocked = true;
   
-  // Capture the word immediately to prevent race conditions
   const guessWord = currentWord;
-  console.log('submitGuess - sending', guessWord, 'user', USER_ID);
+  console.log('submitGuess - sending', guessWord, 'user', currentUserId);
   
-  const res = await fetch('/guess', {
+  const res = await fetch('/api/guess', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ word: guessWord, user: USER_ID })
+    body: JSON.stringify({ word: guessWord, user: currentUserId })
   });
 
   const data = await res.json();
   
-  // Handle invalid word error
   if (!res.ok) {
     console.log('submitGuess - invalid word:', data.error);
     shakeRow();
@@ -176,7 +175,6 @@ async function submitGuess() {
 
   const isWin = data.result.every(r => r === 'correct');
 
-  // Record this guess locally using the captured word
   guesses.push({ word: guessWord, result: data.result });
 
   // Sequential flip animation
@@ -202,7 +200,6 @@ async function submitGuess() {
     const totalFlipTime = (5 * 350) + 900;
 
     setTimeout(() => {
-      // Dance animation
       for (let i = 0; i < 5; i++) {
         const cell = rowDiv.children[i];
         setTimeout(() => {
@@ -215,7 +212,6 @@ async function submitGuess() {
       launchConfetti();
     }, totalFlipTime);
 
-    // Save final progress; keep board visible until Reset
     saveProgress();
     return;
   }
@@ -224,7 +220,6 @@ async function submitGuess() {
   if (row === 5) {
     gameOver = true;
     resetBtn.style.display = 'inline-block';
-    gameOver = true;
     const totalFlipTime = (5 * 350) + 900;
     setTimeout(() => {
       const lastRow = board.children[row];
@@ -238,7 +233,6 @@ async function submitGuess() {
           cell.classList.add('lose');
         }, i * 100);
       }
-      // Save final progress; keep board visible until Reset
       saveProgress();
     }, totalFlipTime);
     return;
@@ -255,10 +249,9 @@ async function submitGuess() {
   }, flipDuration);
 }
 
-// Save game progress to server
 function saveProgress() {
   const progress = { guesses, row, gameOver };
-  fetch(`/user/${USER_ID}/progress`, {
+  fetch(`/api/user/${currentUserId}/progress`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ progress })
@@ -269,13 +262,12 @@ function saveProgress() {
   });
 }
 
-// On page load: create user if not exists, load in-progress progress if exists
 async function loadProgressAndSession() {
   try {
-    const res = await fetch('/session/start', {
+    const res = await fetch('/api/session/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: USER_ID })
+      body: JSON.stringify({ user: currentUserId })
     });
 
     const data = await res.json();
@@ -286,7 +278,6 @@ async function loadProgressAndSession() {
     }
     console.log('loadProgressAndSession - user:', user);
 
-    // If user has in-progress game (GameProgress exists), load it
     if (user.GameProgress) {
       const p = typeof user.GameProgress === 'string' ? JSON.parse(user.GameProgress) : user.GameProgress;
       if (p && p.guesses) {
@@ -296,12 +287,10 @@ async function loadProgressAndSession() {
         currentWord = '';
         gameOver = !!p.gameOver;
 
-        // If game is over, show the reset button
         if (gameOver) {
           resetBtn.style.display = 'inline-block';
         }
 
-        // Render the board
         for (let r = 0; r < guesses.length && r < 6; r++) {
           const g = guesses[r];
           const rowDiv = board.children[r];
@@ -316,7 +305,6 @@ async function loadProgressAndSession() {
         console.log('loadProgressAndSession - restored in-progress game');
       }
     } else {
-      // No in-progress game; show empty board (or could show last completed game if desired)
       console.log('loadProgressAndSession - no in-progress game; empty board');
     }
   } catch (e) {
@@ -324,17 +312,13 @@ async function loadProgressAndSession() {
   }
 }
 
-// Start a new game (Reset button: increments TotalWords and clears progress)
 async function startNewGame() {
   try {
-    // Reset UI immediately
     guesses = [];
     row = 0; col = 0; currentWord = ''; gameOver = false; inputLocked = false;
     
-    // Hide reset button
     resetBtn.style.display = 'none';
     
-    // Clear board
     for (let r = 0; r < 6; r++) {
       for (let c = 0; c < 5; c++) {
         const cell = board.children[r].children[c];
@@ -343,14 +327,12 @@ async function startNewGame() {
         cell.style.animation = '';
       }
     }
-    // Clear keyboard colors
     document.querySelectorAll('.key').forEach(k => k.className = 'key');
 
-    // Tell server to increment TotalWords and clear progress
-    const res = await fetch('/session/end', {
+    const res = await fetch('/api/session/end', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user: USER_ID })
+      body: JSON.stringify({ user: currentUserId })
     });
     const data = await res.json();
     console.log('startNewGame - server response:', data);
@@ -359,19 +341,12 @@ async function startNewGame() {
   }
 }
 
-// Wire reset button
 function resetGame() {
   startNewGame();
 }
 
-// Save progress on unload
 window.addEventListener('beforeunload', () => {
   saveProgress();
-});
-
-// Initialize on load
-window.addEventListener('load', () => {
-  loadProgressAndSession();
 });
 
 function colorKeyboard(letter, status) {
@@ -390,8 +365,6 @@ function colorKeyboard(letter, status) {
   });
 }
 
-/* ===== CONFETTI ===== */
-
 function launchConfetti() {
   for (let i = 0; i < 80; i++) {
     const conf = document.createElement('div');
@@ -409,3 +382,77 @@ function randomColor() {
   const colors = ['#538d4e', '#b59f3b', '#f5793a', '#85c0f9', '#ef476f'];
   return colors[Math.floor(Math.random() * colors.length)];
 }
+
+// Discord SDK Setup
+async function setupDiscordSdk() {
+  await discordSdk.ready();
+  console.log("Discord SDK is ready");
+
+  // Authorize with Discord Client
+  const { code } = await discordSdk.commands.authorize({
+    client_id: import.meta.env.VITE_DISCORD_CLIENT_ID,
+    response_type: "code",
+    state: "",
+    prompt: "none",
+    scope: [
+      "identify",
+      "guilds",
+      "applications.commands"
+    ],
+  });
+
+  // Retrieve an access_token from the server
+  const response = await fetch("/api/token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      code,
+    }),
+  });
+  const { access_token } = await response.json();
+
+  // Authenticate with Discord client
+  auth = await discordSdk.commands.authenticate({
+    access_token,
+  });
+
+  if (auth == null) {
+    throw new Error("Authenticate command failed");
+  }
+
+  // Set current user ID from auth
+  currentUserId = auth.user.id;
+  console.log("Authenticated as user:", currentUserId);
+
+  // Initialize UI
+  initializeBoard();
+  initializeKeyboard();
+  
+  // Load user progress
+  await loadProgressAndSession();
+
+  // Display welcome message
+  document.querySelector('#app').innerHTML = `
+    <div>
+      <h1>🎮 Discord Wordle</h1>
+      <p>Welcome, ${auth.user.username}!</p>
+      <div id="board"></div>
+      <div id="keyboard"></div>
+      <button id="resetBtn" onclick="resetGame()" style="display: none;">Reset</button>
+    </div>
+  `;
+
+  // Re-initialize after DOM update
+  initializeBoard();
+  initializeKeyboard();
+  await loadProgressAndSession();
+}
+
+// Initialize Discord SDK
+discordSdk = new DiscordSDK(import.meta.env.VITE_DISCORD_CLIENT_ID);
+
+setupDiscordSdk().then(() => {
+  console.log("Discord SDK is authenticated");
+});

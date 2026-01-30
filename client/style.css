@@ -1,0 +1,194 @@
+/* ======= GLOBAL ======= */
+
+body { 
+  font-family: Arial, sans-serif; 
+  text-align: center; 
+  background: #121213; 
+  color: white; 
+  margin: 0;
+  padding: 0;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+h1 {
+  margin: 20px 0 10px 0;
+}
+
+/* ======= BOARD ======= */
+
+#board { 
+  display: grid; 
+  grid-template-rows: repeat(6, 1fr); 
+  gap: 6px; 
+  width: 270px; 
+  margin: 20px auto; 
+}
+
+.row { 
+  display: grid; 
+  grid-template-columns: repeat(5, 1fr); 
+  gap: 6px; 
+}
+
+.cell { 
+  width: 50px; 
+  height: 50px; 
+  border: 2px solid #3a3a3c; 
+  background: #121213; 
+  color: white; 
+  font-size: 24px; 
+  font-weight: bold; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  text-transform: uppercase;
+}
+
+.cell.pop {
+  animation: pop 0.1s;
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+.cell.correct { 
+  background: #538d4e; 
+  border-color: #538d4e; 
+}
+
+.cell.present { 
+  background: #b59f3b; 
+  border-color: #b59f3b; 
+}
+
+.cell.absent { 
+  background: #3a3a3c; 
+  border-color: #3a3a3c; 
+}
+
+.cell.dance {
+  animation: dance 0.6s;
+}
+
+@keyframes dance {
+  0%, 100% { transform: rotateZ(0deg) translateY(0); }
+  25% { transform: rotateZ(20deg) translateY(-10px); }
+  75% { transform: rotateZ(-20deg) translateY(-10px); }
+}
+
+.row.shake {
+  animation: shake 0.5s;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.cell.lose {
+  animation: flipLose 0.6s;
+  transform-style: preserve-3d;
+}
+
+@keyframes flipLose {
+  0% { transform: rotateX(0deg); }
+  100% { transform: rotateX(180deg); }
+}
+
+/* ======= KEYBOARD ======= */
+
+#keyboard { 
+  display: flex; 
+  flex-direction: column; 
+  gap: 8px; 
+  width: 320px; 
+  margin: 0 auto; 
+}
+
+.key-row { 
+  display: flex; 
+  gap: 6px; 
+  justify-content: center; 
+}
+
+.key { 
+  flex: 1; 
+  padding: 8px; 
+  background: #818384; 
+  border: none; 
+  color: white; 
+  font-weight: bold; 
+  border-radius: 4px; 
+  cursor: pointer; 
+  font-size: 12px;
+  min-width: 30px;
+  font-family: Arial, sans-serif;
+  text-transform: uppercase;
+}
+
+.key:hover {
+  background: #9ca3af;
+}
+
+.key.big { 
+  flex: 1.5; 
+}
+
+.key.correct { 
+  background: #538d4e; 
+}
+
+.key.present { 
+  background: #b59f3b; 
+}
+
+.key.absent { 
+  background: #3a3a3c; 
+}
+
+/* ======= RESET BUTTON ======= */
+
+#resetBtn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: #538d4e;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+#resetBtn:hover {
+  background: #6aae59;
+}
+
+/* ======= CONFETTI ======= */
+
+.confetti {
+  position: fixed;
+  width: 10px;
+  height: 10px;
+  top: 0;
+  pointer-events: none;
+  animation: confetti-fall linear forwards;
+}
+
+@keyframes confetti-fall {
+  to {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
