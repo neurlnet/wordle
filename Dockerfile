@@ -42,6 +42,9 @@ EXPOSE 3001
 
 # Set working directory to server
 WORKDIR /app/server
+WORKDIR /app/client
+CMD ["npm","run","build"]
+WORKDIR /app/server
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \

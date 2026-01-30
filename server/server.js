@@ -328,6 +328,9 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Wordle server is running' });
 });
 
+// Serve static files from the client dist directory
+app.use(express.static(join(__dirname, '../client/dist')));
+
 // Serve the client app for any non-API routes
 app.get('*', (req, res) => {
   res.sendFile(join(__dirname, '../client/dist/index.html'));
