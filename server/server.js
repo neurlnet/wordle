@@ -29,7 +29,7 @@ const db = new (sqlite3.verbose()).Database('./wordle.db', (err) => {
 // Load valid words list
 let validWords = new Set();
 try {
-  const wordList = fs.readFileSync('../valid-words.txt', 'utf-8');
+  const wordList = fs.readFileSync('./valid-words.txt', 'utf-8');
   const words = wordList.split('\n').map(w => w.trim().toUpperCase()).filter(w => w.length === 5);
   validWords = new Set(words);
   console.log(`Loaded ${validWords.size} valid Wordle words`);
@@ -326,6 +326,11 @@ app.get('/api/user/:user', (req, res) => {
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Wordle server is running' });
+});
+
+// Serve the client app for any non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(join(__dirname, '../client/dist/index.html'));
 });
 
 app.listen(port, () => {
