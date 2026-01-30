@@ -25,6 +25,11 @@ WORKDIR /app
 # Copy environment file
 COPY .env .env
 
+# Set environment variables for production
+ENV NODE_ENV=production
+ENV VITE_DISCORD_CLIENT_ID=$VITE_DISCORD_CLIENT_ID
+ENV DISCORD_CLIENT_SECRET=$DISCORD_CLIENT_SECRET
+
 # Copy server files and dependencies
 COPY server/ ./server/
 WORKDIR /app/server
