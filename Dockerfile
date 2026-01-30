@@ -41,7 +41,7 @@ COPY --from=client-builder /app/client/dist ./client/dist
 COPY valid-words.txt ./server/
 
 # Expose ports
-EXPOSE 3001 5173
+EXPOSE 5173
 
 # Set working directory to root
 WORKDIR /app
