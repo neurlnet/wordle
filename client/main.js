@@ -304,13 +304,11 @@ async function loadProgressAndSession() {
     });
     const data = await res.json();
     if (!res.ok) {
-        const messageEl = document.getElementById('word-message');
-        if(messageEl) {
-            messageEl.textContent = data.error;
-            messageEl.style.color = 'red';
-            inputLocked=true;
-        }
-        // return;
+      const messageEl = document.getElementById('word-message');
+      if (messageEl) {
+        messageEl.textContent = data.error || 'Error loading session';
+        messageEl.style.color = 'red';
+      }
     }
     const user = data.user;
     if (!user) {
@@ -322,6 +320,19 @@ async function loadProgressAndSession() {
 
     // Query resetBtn here too
     resetBtn = document.getElementById('resetBtn');
+
+    // Check if user has a current word assigned
+    if (!user.CurrentWord) {
+      console.log('loadProgressAndSession - no current word assigned, locking input');
+      inputLocked = true;
+      gameOver = true;
+      const messageEl = document.getElementById('word-message');
+      if (messageEl) {
+        messageEl.textContent = 'No word assigned yet. Wait for your opponent to assign words.';
+        messageEl.style.color = 'orange';
+      }
+      return;
+    }
 
     if (user.GameProgress) {
       const p = typeof user.GameProgress === 'string' ? JSON.parse(user.GameProgress) : user.GameProgress;
