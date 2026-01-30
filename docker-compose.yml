@@ -5,6 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - VITE_DISCORD_CLIENT_ID=1466320396910592103
+        - VITE_REDIRECT_URI=http://localhost:3001
     ports:
       - "3001:3001"  # Server port
       - "5173:5173"  # Client dev port
@@ -12,6 +15,7 @@ services:
       - VITE_DISCORD_CLIENT_ID=1466320396910592103
       - DISCORD_CLIENT_SECRET=XHvks8SCPf4wUEsUe8g7UcVoCnE7byPJ
       - VITE_API_URL=/api
+      - VITE_REDIRECT_URI=http://localhost:3001
       - NODE_ENV=development
     volumes:
       - ./client:/app/client

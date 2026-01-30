@@ -3,6 +3,13 @@
 # Stage 1: Build the client application
 FROM node:20-alpine AS client-builder
 
+# Build arguments for Vite environment variables
+ARG VITE_DISCORD_CLIENT_ID
+ARG VITE_REDIRECT_URI
+
+ENV VITE_DISCORD_CLIENT_ID=$VITE_DISCORD_CLIENT_ID
+ENV VITE_REDIRECT_URI=$VITE_REDIRECT_URI
+
 WORKDIR /app
 
 # Copy environment file first (needed for Vite to access env vars during build)

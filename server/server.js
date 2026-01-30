@@ -79,6 +79,11 @@ let SECRET = WORDS[Math.floor(Math.random() * WORDS.length)];
 
 // OAuth Token endpoint
 app.post("/api/token", async (req, res) => {
+  console.log('/api/token - attempting token exchange');
+  console.log('  client_id set:', !!process.env.VITE_DISCORD_CLIENT_ID);
+  console.log('  client_secret set:', !!process.env.DISCORD_CLIENT_SECRET);
+  console.log('  code present:', !!req.body.code);
+
   // Exchange the code for an access_token
   const response = await fetch(`https://discord.com/api/oauth2/token`, {
     method: "POST",
@@ -90,10 +95,27 @@ app.post("/api/token", async (req, res) => {
       client_secret: process.env.DISCORD_CLIENT_SECRET,
       grant_type: "authorization_code",
       code: req.body.code,
+      redirect_uri: process.env.VITE_REDIRECT_URI || 'http://localhost:3001',
     }),
   });
+
+  const data = await response.json();
+  console.log('/api/token - response status:', response.status);
+  console.log('/api/token - response data keys:', Object.keys(data));
+
+  if (!response.ok) {
+    console.error('/api/token - error:', data);
+    return res.status(400).json({ error: 'Token exchange failed', details: data });
+  }
+
   // Retrieve the access_token from the response
-  const { access_token } = await response.json();
+  const { access_token } = data;
+
+  if (!access_token) {
+    console.error('/api/token - no access_token in response:', data);
+    return res.status(400).json({ error: 'No access token provided', details: data });
+  }
+
   // Return the access_token to our client as { access_token: "..."}
   res.send({access_token});
 });

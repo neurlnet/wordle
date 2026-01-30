@@ -503,6 +503,7 @@ async function setupDiscordSdk() {
       response_type: "code",
       state: "",
       prompt: "none",
+      redirect_uri: import.meta.env.VITE_REDIRECT_URI || window.location.origin,
       scope: [
         "identify",
         "guilds",
