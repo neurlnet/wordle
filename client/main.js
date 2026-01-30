@@ -220,6 +220,10 @@ async function submitGuess() {
       launchConfetti();
     }, totalFlipTime);
 
+    fetch(`/api/user/${currentUserId}`)
+      .then(res => res.json())
+      .then(data => updateStats(data.user));
+
     saveProgress();
     return;
   }
@@ -270,6 +274,11 @@ function saveProgress() {
   });
 }
 
+function updateStats(user) {
+  document.getElementById('total-words').innerText = user.TotalWords;
+  document.getElementById('total-correct').innerText = user.TotalCorrect;
+}
+
 async function loadProgressAndSession() {
   try {
     const res = await fetch('/api/session/start', {
@@ -285,6 +294,7 @@ async function loadProgressAndSession() {
       return;
     }
     console.log('loadProgressAndSession - user:', user);
+    updateStats(user);
 
     // Query resetBtn here too
     resetBtn = document.getElementById('resetBtn');
@@ -351,6 +361,7 @@ async function startNewGame() {
     });
     const data = await res.json();
     console.log('startNewGame - server response:', data);
+    updateStats(data.user);
   } catch (e) {
     console.error('startNewGame - error:', e);
   }
@@ -490,6 +501,10 @@ if (isInDiscord) {
       <div>
         <h1>🎮 Discord Wordle</h1>
         <p>Welcome, ${auth.user.username}!</p>
+        <div id="stats">
+          <span>Total Words: <span id="total-words">0</span></span>
+          <span>Total Correct: <span id="total-correct">0</span></span>
+        </div>
         <div id="board"></div>
         <div id="keyboard"></div>
         <button id="resetBtn" style="display: none;">Reset</button>
@@ -520,6 +535,10 @@ if (isInDiscord) {
           <p style="color: red;">Discord authentication failed.....</p>
           <p style="color: red; font-size: 0.9rem; font-family: monospace;">Error: ${errorMsg}</p>
           <p>Running in fallback mode.</p>
+          <div id="stats">
+            <span>Total Words: <span id="total-words">0</span></span>
+            <span>Total Correct: <span id="total-correct">0</span></span>
+          </div>
           <div id="board"></div>
           <div id="keyboard"></div>
           <button id="resetBtn" style="display: none;">Reset</button>
@@ -544,6 +563,10 @@ if (isInDiscord) {
   document.querySelector('#app').innerHTML = `
     <div>
       <h1>🎮 Discord Wordle (Local Dev)</h1>
+      <div id="stats">
+        <span>Total Words: <span id="total-words">0</span></span>
+        <span>Total Correct: <span id="total-correct">0</span></span>
+      </div>
       <div id="board"></div>
       <div id="keyboard"></div>
       <button id="resetBtn"  style="display: none;">Reset</button>

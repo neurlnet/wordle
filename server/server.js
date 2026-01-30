@@ -37,6 +37,19 @@ try {
   console.error('Failed to load valid words list:', err.message);
 }
 
+let userWords = {};
+try {
+  const userWordsData = fs.readFileSync('./user_words.json', 'utf-8');
+  userWords = JSON.parse(userWordsData);
+} catch (err) {
+  if (err.code === 'ENOENT') {
+    fs.writeFileSync('./user_words.json', JSON.stringify({}));
+  } else {
+    console.error('Failed to load user words list:', err.message);
+  }
+}
+
+
 // Create database schema
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS users (
