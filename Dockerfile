@@ -7,6 +7,7 @@ FROM node:20-alpine AS client-builder
 ARG VITE_DISCORD_CLIENT_ID
 ARG VITE_REDIRECT_URI
 
+# Set ENV variables from args so they persist beyond the ARG block
 ENV VITE_DISCORD_CLIENT_ID=$VITE_DISCORD_CLIENT_ID
 ENV VITE_REDIRECT_URI=$VITE_REDIRECT_URI
 
@@ -22,7 +23,13 @@ RUN npm install
 
 COPY client/ .
 
-# Build the client with Vite (env vars from ../.env are now available)
+# Copy .env to client directory so Vite can find it (vite.config.js has envDir: './')
+# Also override with ENV vars from build args to ensure they take precedence
+RUN cp ../.env ./.env && \
+    echo "VITE_DISCORD_CLIENT_ID=$VITE_DISCORD_CLIENT_ID" >> .env && \
+    echo "VITE_REDIRECT_URI=$VITE_REDIRECT_URI" >> .env
+
+# Build the client with Vite (env vars from .env are now available)
 RUN npm run build
 
 # Stage 2: Runtime container

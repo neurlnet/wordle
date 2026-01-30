@@ -2,7 +2,7 @@ import {defineConfig} from 'vite';
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  envDir: '../',
+  envDir: './',  // Look for .env in the same directory (app/client when built)
   server: {
     allowedHosts: true,
     proxy: {
