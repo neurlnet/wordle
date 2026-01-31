@@ -210,18 +210,14 @@ app.post('/api/session/start', (req, res) => {
 
   console.log('/api/session/start - user:', user);
 
-  // First, check if user exists and has ongoing game
+  // First, check if user exists and has an ongoing game
   db.get('SELECT * FROM users WHERE User = ?', [user], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
 
-    if (row) {
-      // User exists, check if they have an ongoing game
-      const hasOngoingGame = row.GameProgress && row.CurrentWord;
-      if (hasOngoingGame) {
-        // Return existing user data without assigning new word
-        console.log('/api/session/start - user has ongoing game, returning existing data');
-        return res.json({ user: row });
-      }
+    // If user has a current word (ongoing game), return existing data
+    if (row && row.CurrentWord) {
+      console.log('/api/session/start - user has ongoing game, returning existing data');
+      return res.json({ user: row });
     }
 
     // No ongoing game, try to assign new word
@@ -245,7 +241,6 @@ app.post('/api/session/start', (req, res) => {
         [user, newSecret, user, user],
         function (err) {
           if (err) return res.status(500).json({ error: err.message });
-          // Return full user row
           db.get('SELECT * FROM users WHERE User = ?', [user], (err, row) => {
             if (err) return res.status(500).json({ error: err.message });
             console.log('/api/session/start - assigned new word, user row:', row);
@@ -254,7 +249,7 @@ app.post('/api/session/start', (req, res) => {
         }
       );
     } else {
-      // No new word available, but still return user data if exists
+      // No new word available, but return existing user data if exists
       if (row) {
         console.log('/api/session/start - no new word available, returning existing user data');
         res.json({ user: row });
